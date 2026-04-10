@@ -39,6 +39,10 @@ except ImportError:
 
 
 def excel_to_markdown(src, dst, sheet_name=0, encoding='utf-8'):
+    # 确保输出文件有.md扩展名
+    if not dst.lower().endswith('.md'):
+        dst = dst + '.md'
+    
     try:
         df = pd.read_excel(src, sheet_name=sheet_name, engine='openpyxl')
     except Exception as e:
@@ -47,17 +51,18 @@ def excel_to_markdown(src, dst, sheet_name=0, encoding='utf-8'):
     # 清理单元格内的换行符，避免Markdown表格格式错乱
     df = df.map(lambda x: str(x).replace('\n', ' ').replace('\r', ' ') if pd.notna(x) else x)
     
-    try:
-        markdown_content = df.to_markdown(index=False)
-    except Exception as e:
-        # 如果to_markdown失败，手动生成Markdown表格
-        markdown_content = _manual_df_to_markdown(df)
+    # 使用手动生成的Markdown表格，更稳定可靠
+    markdown_content = _manual_df_to_markdown(df)
     
     with open(dst, 'w', encoding=encoding) as f:
         f.write(markdown_content)
     return True
 
 def excel_to_csv(src, dst, sheet_name=0, encoding='utf-8'):
+    # 确保输出文件有.csv扩展名
+    if not dst.lower().endswith('.csv'):
+        dst = dst + '.csv'
+    
     df = pd.read_excel(src, sheet_name=sheet_name, engine='openpyxl')
     # 清理单元格内的换行符
     df = df.map(lambda x: str(x).replace('\n', ' ').replace('\r', ' ') if pd.notna(x) else x)
@@ -65,6 +70,10 @@ def excel_to_csv(src, dst, sheet_name=0, encoding='utf-8'):
     return True
 
 def csv_to_markdown(src, dst, encoding='utf-8'):
+    # 确保输出文件有.md扩展名
+    if not dst.lower().endswith('.md'):
+        dst = dst + '.md'
+    
     try:
         df = pd.read_csv(src, encoding=encoding)
     except Exception as e:
@@ -73,22 +82,27 @@ def csv_to_markdown(src, dst, encoding='utf-8'):
     # 清理单元格内的换行符
     df = df.map(lambda x: str(x).replace('\n', ' ').replace('\r', ' ') if pd.notna(x) else x)
     
-    try:
-        markdown_content = df.to_markdown(index=False)
-    except Exception as e:
-        # 如果to_markdown失败，手动生成Markdown表格
-        markdown_content = _manual_df_to_markdown(df)
+    # 使用手动生成的Markdown表格，更稳定可靠
+    markdown_content = _manual_df_to_markdown(df)
     
     with open(dst, 'w', encoding=encoding) as f:
         f.write(markdown_content)
     return True
 
 def csv_to_excel(src, dst, encoding='utf-8'):
+    # 确保输出文件有.xlsx扩展名
+    if not dst.lower().endswith('.xlsx'):
+        dst = dst + '.xlsx'
+    
     df = pd.read_csv(src, encoding=encoding)
     df.to_excel(dst, index=False, engine='openpyxl')
     return True
 
 def json_to_markdown(src, dst, orient='records', encoding='utf-8'):
+    # 确保输出文件有.md扩展名
+    if not dst.lower().endswith('.md'):
+        dst = dst + '.md'
+    
     try:
         with open(src, 'r', encoding=encoding) as f:
             data = json.load(f)
@@ -106,22 +120,27 @@ def json_to_markdown(src, dst, orient='records', encoding='utf-8'):
     # 清理单元格内的换行符
     df = df.map(lambda x: str(x).replace('\n', ' ').replace('\r', ' ') if pd.notna(x) else x)
     
-    try:
-        markdown_content = df.to_markdown(index=False)
-    except Exception as e:
-        # 如果to_markdown失败，手动生成Markdown表格
-        markdown_content = _manual_df_to_markdown(df)
+    # 使用手动生成的Markdown表格，更稳定可靠
+    markdown_content = _manual_df_to_markdown(df)
     
     with open(dst, 'w', encoding=encoding) as f:
         f.write(markdown_content)
     return True
 
 def markdown_to_csv(src, dst, encoding='utf-8'):
+    # 确保输出文件有.csv扩展名
+    if not dst.lower().endswith('.csv'):
+        dst = dst + '.csv'
+    
     df = _parse_markdown_table(src, encoding)
     df.to_csv(dst, index=False, encoding=encoding)
     return True
 
 def markdown_to_excel(src, dst, encoding='utf-8'):
+    # 确保输出文件有.xlsx扩展名
+    if not dst.lower().endswith('.xlsx'):
+        dst = dst + '.xlsx'
+
     df = _parse_markdown_table(src, encoding)
     df.to_excel(dst, index=False, engine='openpyxl')
     return True
@@ -294,9 +313,15 @@ class FileConverterGUI:
             ext = ".md"
         else:
             ext = "." + self.output_format.get()
-        filename = filedialog.asksaveasfilename(title="保存为", defaultextension=ext,
-                                                 filetypes=[("所有文件", "*.*")])
+        filename = filedialog.asksaveasfilename(
+            title="保存为",
+            defaultextension=ext,
+            filetypes=[("所有文件", "*.*")]
+        )
         if filename:
+            # 确保文件名有正确的扩展名
+            if not filename.lower().endswith(ext.lower()):
+                filename += ext
             self.output_path.set(filename)
             self.log(f"已设置输出文件: {Path(filename).name}")
     
@@ -385,6 +410,21 @@ class FileConverterGUI:
     
     def _convert_worker(self, in_fmt, out_fmt, src, dst, sheet, orient, enc):
         try:
+            # 根据输出格式自动修正文件扩展名
+            ext_map = {'xlsx': '.xlsx', 'csv': '.csv', 'md': '.md'}
+            correct_ext = ext_map.get(out_fmt, '')
+            
+            if correct_ext and not dst.lower().endswith(correct_ext.lower()):
+                # 移除旧扩展名并添加新扩展名
+                base_name = Path(dst).stem
+                # 移除所有已知扩展名
+                for ext in ['.xlsx', '.csv', '.md', '.json']:
+                    if base_name.lower().endswith(ext):
+                        base_name = base_name[:-len(ext)]
+                        break
+                dst = str(Path(dst).parent / (base_name + correct_ext))
+                self.log(f"已自动修正输出文件扩展名: {Path(dst).name}")
+            
             if in_fmt == 'xlsx' and out_fmt == 'md':
                 excel_to_markdown(src, dst, sheet, enc)
             elif in_fmt == 'xlsx' and out_fmt == 'csv':
@@ -408,10 +448,10 @@ class FileConverterGUI:
                         f"转换成功！\n\n输出文件:\n{dst}"))
         
         except Exception as e:
-            error_msg = f"✗ 转换失败: {str(e)}"
-            self.log(error_msg)
+            error_msg = str(e)
+            self.log(f"✗ 转换失败: {error_msg}")
             self.log("=" * 50)
-            self.root.after(0, lambda: messagebox.showerror("转换失败", str(e)))
+            self.root.after(0, lambda msg=error_msg: messagebox.showerror("转换失败", msg))
         
         finally:
             self.root.after(0, self.progress.stop)
